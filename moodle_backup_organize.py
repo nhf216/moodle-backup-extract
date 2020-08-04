@@ -9,6 +9,7 @@ import xml.etree.ElementTree as etree
 import shutil
 import os
 import sys
+import re
 import html
 import urllib
 
@@ -27,6 +28,8 @@ FILES_XML = 'files.xml'
 CONTENT_XML = 'moodle_backup.xml'
 QUESTIONS_XML = 'questions.xml'
 
+INDEX_FILENAME = 'index.html'
+
 NEW_FILES_DIR = 'content'
 NEW_HTML_DIR = 'html'
 OLD_FILES_DIR = 'files'
@@ -37,6 +40,9 @@ URL = 'url'
 RESOURCE = 'resource'
 FOLDER = 'folder'
 QUIZ = 'quiz'
+
+ACTIVITY_NAMES = {ASSIGNMENT : 'Assignments', PAGE : 'Pages', URL : 'URLs',\
+    RESOURCE : 'Resources', FOLDER : 'Folders', QUIZ : 'QUIZZES'}
 
 MOODLE_PLUGIN_FILE = '@@PLUGINFILE@@/'
 
@@ -152,13 +158,19 @@ def make_html(aname, content, context_files = []):
         if not found:
             raise ValueError("File %s not found" % filename)
     #Append extra files as links
+    links_started = False
     for i in range(len(context_files)):
         if not i in embedded_indices:
             #Add a link to this file
+            if not links_started:
+                links_started = True
+                body += '<ul>'
             file = context_files[i]
-            body += '<br><br><a href="%s">%s</a>' %\
+            body += '\n<li><a href="%s">%s</a></li>' %\
                 (os.path.join(NEW_FILES_DIR, file.names[file.initial_name]),\
                     file.initial_name)
+    if links_started:
+        body += '\n</ul>'
     #Now, mess with the head
     head = "<title>%s</title>" % aname
     #Check for latex in body
@@ -206,6 +218,13 @@ def write_html(dest, name, type, content):
 #Return a string representation of flt as a percentage to at most 2 places
 def percentify(flt):
     return ('%.2f' % (flt * 100)).rstrip('0').rstrip('.') + '%'
+
+#For natural sorting
+def atoi(text):
+    return int(text) if text.isdigit() else text
+
+def natural_keys(text):
+    return [ atoi(c) for c in re.split(r'(\d+)', text) ]
 
 #Return a string representation of flt as a number with at most 2 places.
 #Also return the word 'points' following it, unless it should be 'point'.
@@ -473,7 +492,8 @@ if __name__ == '__main__':
                                 ['fraction']))
                         #Feedback
                         if 'feedback' in answer:
-                            acontent += '<br><br>Feedback: %s' % answer['feedback']
+                            acontent += '<br><br>Feedback: %s' %\
+                                answer['feedback']
                         #End list item
                         acontent += '</li>'
                     #End list
@@ -511,6 +531,62 @@ if __name__ == '__main__':
         elif success == UNSUPPORTED:
             print("Did not process %s %s, type not supported" %\
                 (mname, aname))
+
+    #Construct HTML index
+    #Should work even if all files already existed
+    print()
+    print("Constructing HTML index")
+    index = dict()
+    for html_file in os.listdir(new_html_dir):
+        #Check if HTML file
+        if html_file[-5:] == '.html':
+            #Find its title and type
+            underscore_index = html_file.find('_')
+            if underscore_index == -1:
+                #What's this file doing here?
+                continue
+            type = html_file[:underscore_index]
+            if type not in ACTIVITY_NAMES:
+                #What's this file doing here?
+                continue
+            with open(os.path.join(new_html_dir, html_file), 'r') as html_in:
+                content = html_in.read()
+                title_index = content.find('<title>')
+                title_index_2 = content.find('</title>')
+                if title_index == -1 or title_index_2 == -1 or\
+                        title_index_2 < title_index:
+                    #What's this file doing here?
+                    continue
+                title = content[title_index + 7 : title_index_2]
+            #Add the file to the index
+            if ACTIVITY_NAMES[type] not in index:
+                index[ACTIVITY_NAMES[type]] = []
+            index[ACTIVITY_NAMES[type]].append((html_file, title))
+    #Start creating the content
+    content = '<html><head><title>'
+    #Get the course name
+    try:
+        course_name = html.unescape(ctree.getroot().find("information").\
+            find("original_course_fullname").text)
+    except:
+        course_name = "Moodle Site"
+    content += 'Index for %s</title></head><body><h1>Index for %s</h1>' %\
+        (course_name, course_name)
+    #Process the index in sorted order
+    types = list(index.keys())
+    types.sort()
+    for type in types:
+        content += '<h2>%s</h2><ul>' % type
+        #Process the files in order
+        index[type].sort(key = lambda entry: natural_keys(entry[0]))
+        for entry in index[type]:
+            content += '\n<li><a href="%s">%s</a></li>' % entry
+        content += '</ul>'
+    content += '</body></html>'
+    #Write the file
+    with open(os.path.join(new_html_dir, INDEX_FILENAME), 'w') as html_out:
+        html_out.write(content)
+    print("Wrote %s" % INDEX_FILENAME)
 
     print()
     print("Done!")

@@ -8,6 +8,8 @@ Once you have extracted your backup into a directory, you can run
 
 where `source` is the directory containing your extracted backup and `dest` is the directory where you want the usable content extracted from your backup to reside. `dest` is optional; the default is for the source and destination to be the same. The script will extract all of your files and name them their correct names, placing them in a subdirectory of `dest` named `content`. It will also extract HTML versions of assignments, pages, folders, URLs, quizzes, and resources from your site, storing them in a subdirectory of `dest` named `html`.
 
+It also creates a file called `index.html` in your `html` directory containing organized links to the other HTML files created.
+
 ## Dependencies
 
 This project requires Python 3.8 or higher, and you are strongly encouraged to have the module `pathvalidate` installed to avoid unwanted transcription failures. It can be installed via
