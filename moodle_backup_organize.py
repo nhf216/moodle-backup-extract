@@ -25,6 +25,7 @@ except ImportError:
 
 FILES_XML = 'files.xml'
 CONTENT_XML = 'moodle_backup.xml'
+QUESTIONS_XML = 'questions.xml'
 
 NEW_FILES_DIR = 'content'
 NEW_HTML_DIR = 'html'
@@ -35,6 +36,7 @@ PAGE = 'page'
 URL = 'url'
 RESOURCE = 'resource'
 FOLDER = 'folder'
+QUIZ = 'quiz'
 
 MOODLE_PLUGIN_FILE = '@@PLUGINFILE@@/'
 
@@ -201,6 +203,19 @@ def write_html(dest, name, type, content):
         print("Failed to write file %s" % compile_fname())
         return FAILURE
 
+#Return a string representation of flt as a percentage to at most 2 places
+def percentify(flt):
+    return ('%.2f' % (flt * 100)).rstrip('0').rstrip('.') + '%'
+
+#Return a string representation of flt as a number with at most 2 places.
+#Also return the word 'points' following it, unless it should be 'point'.
+def pointify(flt):
+    num = ('%.2f' % flt).rstrip('0').rstrip('.')
+    if num == '1':
+        return num + ' point'
+    else:
+        return num + ' points'
+
 if __name__ == '__main__':
     #Get arguments
     if len(sys.argv) < 2:
@@ -281,6 +296,63 @@ if __name__ == '__main__':
     print()
     print("Done copying files!")
 
+    #Next, extract the questions
+    questions = dict()
+    qtree = etree.parse(os.path.join(source, QUESTIONS_XML))
+    qroot = qtree.getroot()
+
+    #Iterate through question categories
+    for question_category in qroot:
+        questions_node = question_category.find("questions")
+        #Iterate through questions
+        for question_node in questions_node:
+            #Extract info about it
+            id = question_node.attrib['id']
+            text = question_node.find('questiontext').text
+            type = question_node.find('qtype').text
+            #Store the info
+            questions[id] = {'text' : text, 'type' : type}
+
+            answer_node = question_node.find('plugin_qtype_%s_question' % type)
+            if answer_node is not None:
+                answers = answer_node.find('answers')
+            else:
+                answers = None
+            #Handle essays separately
+            if type == 'essay':
+                template = answer_node.find('essay').\
+                    find('responsetemplate').text
+                if template is not None:
+                    questions[id]['template'] = template
+            elif answers is not None:
+                questions[id]['answers'] = dict()
+                for answer in answers:
+                    #Extract answer info
+                    answer_id = answer.attrib['id']
+                    answer_text = answer.find('answertext').text
+                    answer_fraction = answer.find('fraction').text
+                    answer_feedback = answer.find('feedback').text
+                    #Store answer info
+                    questions[id]['answers'][answer_id] = dict()
+                    adict = questions[id]['answers'][answer_id]
+                    adict['text'] = answer_text
+                    adict['fraction'] = answer_fraction
+                    if answer_feedback is not None:
+                        adict['feedback'] = answer_feedback
+                #Special handling for numericals
+                if type == 'numerical':
+                    #Units not currently handled
+                    #Tolerance
+                    records_node = answer_node.find('numerical_records')
+                    for record_node in records_node:
+                        ans_id = record_node.find('answer').text
+                        tolerance = record_node.find('tolerance').text
+                        if tolerance is not None:
+                            adict = questions[id]['answers'][ans_id]\
+                                ['tolerance'] = tolerance
+
+
+
     #Now do the page's contents
     ctree = etree.parse(os.path.join(source, CONTENT_XML))
     #Get the root of the content we care about
@@ -329,6 +401,89 @@ if __name__ == '__main__':
             acontent = achild.find('externalurl').text
             #Convert to html
             acontent = '<a href="%s">%s</a>' % (acontent, aname)
+        #Quiz
+        elif mname == QUIZ:
+            #Get the intro content
+            aintro = achild.find('intro').text
+            if aintro is not None and len(aintro) > 0:
+                acontent = aintro + '\n<br><br>\n'
+            else:
+                acontent = ''
+            #Process the questions
+            question_nodes = dict()
+            questions_node = achild.find('question_instances')
+            for question_node in questions_node:
+                #Get the ID, page, slot, and maxmark
+                question_id = question_node.find('questionid').text
+                page = int(question_node.find('page').text)
+                slot = int(question_node.find('slot').text)
+                points = question_node.find('maxmark').text
+                #Store for later sorting
+                question_nodes[(page, slot)] = {'id' : question_id,\
+                    'points' : points}
+            #Process the questions in order
+            question_numbers = list(question_nodes.keys())
+            question_numbers.sort()
+            count = 1
+            for question_number in question_numbers:
+                #Re-extract the info
+                question_node = question_nodes[question_number]
+                question_id = question_node['id']
+                #Get the question record
+                question = questions[question_id]
+                #Get the question type
+                question_type = question['type']
+                #Treat descriptions specially
+                if question_type != 'description':
+                    #Get the number of points
+                    points = float(question_node['points'])
+                    acontent += '<b>Question %d</b> (%s)<br>' % (count,\
+                        pointify(points))
+                    #Throw in the type
+                    acontent += '[%s]' % question_type
+                    #Increment the question counter
+                    count += 1
+                else:
+                    acontent += '<b>Instructions:</b> '
+                #Throw in the text
+                acontent += '%s' % question['text']
+                #Throw in template if it's there
+                if 'template' in question:
+                    acontent += '<br>Template: %s<br>' %\
+                        question['template']
+                #Process answers
+                if 'answers' in question:
+                    #Handle multichoice separately
+                    if question_type == 'multichoice':
+                        acontent += '<ol type="a">'
+                    else:
+                        acontent += '<ul>'
+                    for answer_id in question['answers']:
+                        answer = question['answers'][answer_id]
+                        #Text
+                        acontent += '<li>%s' % answer['text']
+                        #Tolerance
+                        if 'tolerance' in answer:
+                            acontent += ' +/- %s' % answer['tolerance']
+                        #Fraction
+                        fraction = answer['fraction']
+                        if fraction is not None:
+                            #Format fraction as a two-decimal percent
+                            acontent += " (%s)" % percentify(float(answer\
+                                ['fraction']))
+                        #Feedback
+                        if 'feedback' in answer:
+                            acontent += '<br><br>Feedback: %s' % answer['feedback']
+                        #End list item
+                        acontent += '</li>'
+                    #End list
+                    #Handle multichoice separately
+                    if question_type == 'multichoice':
+                        acontent += '</ol>'
+                    else:
+                        acontent += '</ul>'
+                #Add in extra spacing
+                acontent += '<br>\n'
         #Other (ignore)
         else:
             #Report no copy
