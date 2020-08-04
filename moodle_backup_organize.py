@@ -42,7 +42,7 @@ FOLDER = 'folder'
 QUIZ = 'quiz'
 
 ACTIVITY_NAMES = {ASSIGNMENT : 'Assignments', PAGE : 'Pages', URL : 'URLs',\
-    RESOURCE : 'Resources', FOLDER : 'Folders', QUIZ : 'QUIZZES'}
+    RESOURCE : 'Resources', FOLDER : 'Folders', QUIZ : 'Quizzes'}
 
 MOODLE_PLUGIN_FILE = '@@PLUGINFILE@@/'
 
