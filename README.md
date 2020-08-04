@@ -4,11 +4,13 @@ This project's purpose is to assist with extracting useful, human-readable conte
 
 Once you have extracted your backup into a directory, you can run
 
-`python3 moodle_backup_organize.py source [dest]`
+`python3 moodle_backup_organize.py source [dest] [--reset]`
 
 where `source` is the directory containing your extracted backup and `dest` is the directory where you want the usable content extracted from your backup to reside. `dest` is optional; the default is for the source and destination to be the same. The script will extract all of your files and name them their correct names, placing them in a subdirectory of `dest` named `content`. It will also extract HTML versions of assignments, pages, folders, URLs, quizzes, and resources from your site, storing them in a subdirectory of `dest` named `html`.
 
 It also creates a file called `index.html` in your `html` directory containing organized links to the other HTML files created.
+
+If you pass the optional flag `--reset` as a final argument, it will delete existing `content` and `html` directories before it runs. Otherwise, it will treat existing files that it would create as already present, except for `index.html` which it always re-creates.
 
 ## Dependencies
 

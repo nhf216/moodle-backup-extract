@@ -54,6 +54,8 @@ FAILURE = -1
 UNSUPPORTED = 2
 UNKNOWN = 999
 
+RESET_FLAG = '--reset'
+
 #Track which content and html files have been created by
 #this run of this program
 content_created = set()
@@ -238,21 +240,35 @@ def pointify(flt):
 if __name__ == '__main__':
     #Get arguments
     if len(sys.argv) < 2:
-        print("Usage: python3 moodle_backup_organize.py [source] (dest)")
+        print("Usage: python3 moodle_backup_organize.py source [dest] "
+            "[--reset]")
         sys.exit(0)
 
     #Extract the source
     source = sys.argv[1]
     #Extract the destination
-    if len(sys.argv) >= 3:
+    if len(sys.argv) >= 3 and not (len(sys.argv) == 3 and\
+            sys.argv[-1] == RESET_FLAG):
         destination = sys.argv[2]
     else:
         #If not given, use source as destination
         destination = source
+    #Check for reset flag
+    if sys.argv[-1] == RESET_FLAG:
+        reset = True
+    else:
+        reset = False
 
     #Create the new files and content directories
     new_files_dir = os.path.join(destination, NEW_FILES_DIR)
     new_html_dir = os.path.join(destination, NEW_HTML_DIR)
+    #Reset if necessary
+    if reset:
+        if os.path.isdir(new_files_dir):
+            shutil.rmtree(new_files_dir)
+        if os.path.isdir(new_html_dir):
+            shutil.rmtree(new_html_dir)
+    #Create if necessary
     if not os.path.isdir(new_files_dir):
         os.mkdir(new_files_dir)
     if not os.path.isdir(new_html_dir):
