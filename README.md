@@ -1,6 +1,6 @@
 # moodle-backup-extract
 
-This project's purpose is to assist with extracting useful, human-readable content from a backup of a Moodle site for a course you may have taught. Before using the utilities here, create a backup of your Moodle site by clicking the gear in the upper left, selecting "Backup," clicking "Got to last step," then creating the backup. After doing this, download your backup. (It will be the top one in the list of backups.) This will download a file with a .mbz extension. This is actually just a ZIP file. You need to extract its contents into a directory somewhere on your computer. If you are unable to do so directly from the MBZ file, rename the extension to .zip.
+This project's purpose is to assist with extracting useful, human-readable content from a backup of a Moodle site for a course you may have taught. Before using the utilities here, create a backup of your Moodle site by clicking the gear in the upper left, selecting "Backup," clicking "Got to last step," then creating the backup. After doing this, download your backup. (It will be the top one in the list of backups.) This will download a file with a .mbz extension. This is actually just a ZIP file. You need to extract its contents into a directory somewhere on your computer. If you are unable to do so directly from the MBZ file, rename the extension to .zip. These instructions can also be found [here](http://www.reades.com/2012/11/29/mb-archives/).
 
 Once you have extracted your backup into a directory, you can run
 
